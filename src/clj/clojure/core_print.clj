@@ -372,17 +372,4 @@
   (print-dup (.name n) w)
   (.write w ")"))
 
-(defmethod print-method clojure.lang.IDeref [o ^Writer w]
-  (print-sequential (format "#<%s@%x%s: "
-                            (.getSimpleName (class o))
-                            (System/identityHashCode o)
-                            (if (and (instance? clojure.lang.Agent o)
-                                     (agent-error o))
-                              " FAILED"
-                              ""))
-                    pr-on, "", ">", (list (if (and (instance? clojure.lang.IPending o)
-                                                   (not (.isRealized ^clojure.lang.IPending o)))
-                                            :pending
-                                            @o)), w))
-
 (def ^{:private true} print-initialized true)

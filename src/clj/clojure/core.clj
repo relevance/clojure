@@ -6299,43 +6299,6 @@
 
 (load "core_futures")
 
-#_(defn future-call 
-  "Takes a function of no args and yields a future object that will
-  invoke the function in another thread, and will cache the result and
-  return it on all subsequent calls to deref/@. If the computation has
-  not yet finished, calls to deref/@ will block, unless the variant
-  of deref with timeout is used. See also - realized?."
-  {:added "1.1"
-   :static true}
-  [f]
-  (let [f (binding-conveyor-fn f)
-        fut (.submit clojure.lang.Agent/soloExecutor ^Callable f)]
-    (reify 
-     clojure.lang.IDeref 
-     (deref [_] (deref-future fut))
-     clojure.lang.IBlockingDeref
-     (deref
-      [_ timeout-ms timeout-val]
-      (deref-future fut timeout-ms timeout-val))
-     clojure.lang.IPending
-     (isRealized [_] (.isDone fut))
-     java.util.concurrent.Future
-      (get [_] (.get fut))
-      (get [_ timeout unit] (.get fut timeout unit))
-      (isCancelled [_] (.isCancelled fut))
-      (isDone [_] (.isDone fut))
-      (cancel [_ interrupt?] (.cancel fut interrupt?)))))
-  
-#_(defmacro future
-  "Takes a body of expressions and yields a future object that will
-  invoke the body in another thread, and will cache the result and
-  return it on all subsequent calls to deref/@. If the computation has
-  not yet finished, calls to deref/@ will block, unless the variant of
-  deref with timeout is used. See also - realized?."
-  {:added "1.1"}
-  [& body] `(future-call (^{:once true} fn* [] ~@body)))
-
-
 (defn future-cancel
   "Cancels the future, if possible."
   {:added "1.1"
@@ -6431,48 +6394,6 @@
          (when (pos? (count q)) (str "-" q)))
        (when (:interim *clojure-version*)
          "-SNAPSHOT")))
-
-#_(defn promise
-  "Alpha - subject to change.
-  Returns a promise object that can be read with deref/@, and set,
-  once only, with deliver. Calls to deref/@ prior to delivery will
-  block, unless the variant of deref with timeout is used. All
-  subsequent derefs will return the same delivered value without
-  blocking. See also - realized?."
-  {:added "1.1"
-   :static true}
-  []
-  (let [d (java.util.concurrent.CountDownLatch. 1)
-        v (atom d)]
-    (reify 
-     clojure.lang.IDeref
-       (deref [_] (.await d) @v)
-     clojure.lang.IBlockingDeref
-       (deref
-        [_ timeout-ms timeout-val]
-        (if (.await d timeout-ms java.util.concurrent.TimeUnit/MILLISECONDS)
-          @v
-          timeout-val))  
-     clojure.lang.IPending
-      (isRealized [this]
-       (zero? (.getCount d)))
-     clojure.lang.IFn
-     (invoke
-      [this x]
-      (when (and (pos? (.getCount d))
-                 (compare-and-set! v d x))
-        (.countDown d)
-        this)))))
-
-#_(defn deliver
-  "Alpha - subject to change.
-  Delivers the supplied value to the promise, releasing any pending
-  derefs. A subsequent call to deliver on a promise will have no effect."
-  {:added "1.1"
-   :static true}
-  [promise val] (promise val))
-
-
 
 (defn flatten
   "Takes any nested combination of sequential things (lists, vectors,

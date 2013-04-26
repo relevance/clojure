@@ -393,18 +393,15 @@
     return))
 
 
-
-;; Replacing one print-method in core to safely print failed
-;; promises:
-
-#_(defmethod print-method clojure.lang.IDeref [o ^Writer w]
+;;; This isn't in core_print due to load order
+(defmethod print-method clojure.lang.IDeref [o ^Writer w]
   (print-sequential (format "#<%s@%x%s: "
                             (.getSimpleName (class o))
                             (System/identityHashCode o)
                             (if (or (and (instance? clojure.lang.Agent o)
                                          (agent-error o))
-                                    (and (instance? cljque.promises.Promise o)
-                                         (cljque.promises/realized-exception? o)))
+                                    (and (instance? Promise o)
+                                         (realized-exception? o)))
                               " FAILED"
                               ""))
                     pr-on, "", ">", (list (if (and (instance? clojure.lang.IPending o) (not (.isRealized o)))
