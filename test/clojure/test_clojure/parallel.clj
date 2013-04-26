@@ -27,3 +27,18 @@
   ;; regression fixed in r1218; was OutOfMemoryError
   (is (= '(1) (pmap inc [0]))))
 
+(deftest future-callback
+  (is (= 42 (deref (let [p (promise)]
+                     (then-call (future 42) (partial deliver p))
+                     p)
+                   10000
+                   :timeout))))
+
+
+(deftest promise-callback
+  (is (= 42 (deref (let [p (promise)
+                         then-p (then-call p inc)]
+                     (p 41)
+                     then-p)
+                   10000
+                   :timeout))))

@@ -32,7 +32,7 @@
 
 (defprotocol IDeliver
   (-deliver [promise val])
-  (-fail [promise exception]))
+  (-deliver-exception [promise exception]))
 
 (defprotocol INotify
   (^{:added "1.6"} -attend [promise f executor]
@@ -40,7 +40,7 @@
   executor when it has a value. Returns the promise."))
 
 (defprotocol IFail
-  (^{:added "1.6"} -failed? [promise]
+  (^{:added "1.6"} -realized-exception? [promise]
     "Returns true if this promise has been failed."))
 
 (defn attend
@@ -53,7 +53,7 @@
   ([promise f executor]
      (-attend promise f executor)))
 
-(defn fail
+(defn deliver-exception
   "Delivers the supplied exception to the promise, releasing any
   pending derefs by throwing the exception. A subsequent call to
   deliver or fail on the promise will have no effect. Returns nil if
@@ -61,7 +61,7 @@
   promise."
   {:added "1.6"}  
   [promise exception]
-  (-fail promise exception))
+  (-deliver-exception promise exception))
 
 (defn deliver
   "Delivers the supplied value to the promise, releasing any pending
@@ -77,7 +77,7 @@
            (extends? INotify (type val)))
     (do (attend val (fn [p] (try (deliver promise @p)
                                  (catch Throwable t
-                                   (fail promise t))))
+                                   (deliver-exception promise t))))
                 nil)
         promise)
     (-deliver promise val)))
@@ -101,7 +101,7 @@
                  (when-not (realized? return)
                    (try (deliver return (f @p))
                         (catch Throwable t
-                          (fail return t)))))
+                          (deliver-exception return t)))))
                executor)
        return)))
 
@@ -141,16 +141,16 @@
                    (if-let [ex (try @p nil (catch Throwable t t))]
                      (try (deliver return (f ex))
                           (catch Throwable t
-                            (fail return (add-suppressed t ex))))
+                            (deliver-exception return (add-suppressed t ex))))
                      (deliver return @p))))
                executor)
        return)))
 
-(defn failed?
+(defn realized-exception?
   "Returns true if the promise or future has failed."
   {:added "1.6"}  
   [p]
-  (-failed? p))
+  (-realized-exception? p))
 
 ;; Try-finally in 'locking' breaks mutable fields, this is a
 ;; workaround.
@@ -179,7 +179,7 @@
       (.countDown latch)
       (doseq [f fs] (f))
       this))
-  (-fail [this ex]
+  (-deliver-exception [this ex]
     (when-let [fs (locking this
                     (when-let [fs q]
                       (set-e this ex)
@@ -199,23 +199,30 @@
     this)
   IFail
   ;; e has to be volatile because of unprotected read here
-  (-failed? [_] (boolean e))
+  (-realized-exception? [_] (boolean e))
+  
+  clojure.lang.IFn
+  (invoke [this val]
+    (-deliver this val))
+  
   clojure.lang.IDeref
   (deref [_]
     (.await latch)
     (if e (throw e) v))
+  
   clojure.lang.IBlockingDeref
   (deref
     [_ timeout-ms timeout-val]
     (if (.await latch timeout-ms TimeUnit/MILLISECONDS)
       (if e (throw e) v)
       timeout-val))
+  
   clojure.lang.IPending
   (isRealized [this]
     (zero? (.getCount latch)))
   Future
   (cancel [this interrupt?]
-    (boolean (fail this (CancellationException.))))
+    (boolean (deliver-exception this (CancellationException.))))
   (get [this]
     (.await latch)
     (if e (throw e) v))
@@ -293,7 +300,7 @@
                               (deliver return value)
                               value)
                             (catch Throwable t
-                              (fail return t))))
+                              (deliver-exception return t))))
            fut (.submit executor task)]
        (reify
          clojure.lang.IDeref
@@ -310,7 +317,7 @@
          (isDone [_] (.isDone fut))
          (cancel [_ interrupt?]
            (let [b (.cancel fut interrupt?)]
-             (when b (fail return (try (.get fut)
+             (when b (deliver-exception return (try (.get fut)
                                        (CancellationException.)
                                        (catch Throwable t t))))
              b))
@@ -318,8 +325,8 @@
          (-attend [_ f executor]
            (-attend return f executor))
          IFail
-         (-failed? [_]
-           (failed? return))))))
+         (-realized-exception? [_]
+           (realized-exception? return))))))
 
 (defmacro future
   "Returns a future/promise object. Executes body on *future-executor*
@@ -340,7 +347,7 @@
       (attend pr (fn [p]
                    (try (deliver return @p)
                         (catch Throwable t
-                          (fail return t))))))
+                          (deliver-exception return t))))))
     return))
 
 (defn all
@@ -361,7 +368,7 @@
                           (when (= total (swap! counter inc))
                             (deliver return @vals))
                           (catch Throwable t
-                            (fail return t))))))
+                            (deliver-exception return t))))))
       (range)
       promises))
     return))
@@ -397,7 +404,7 @@
                             (if (or (and (instance? clojure.lang.Agent o)
                                          (agent-error o))
                                     (and (instance? cljque.promises.Promise o)
-                                         (cljque.promises/failed? o)))
+                                         (cljque.promises/realized-exception? o)))
                               " FAILED"
                               ""))
                     pr-on, "", ">", (list (if (and (instance? clojure.lang.IPending o) (not (.isRealized o)))
