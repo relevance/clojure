@@ -155,7 +155,7 @@
 ;; Try-finally in 'locking' breaks mutable fields, this is a
 ;; workaround.
 ;; See CLJ-1023.
-(defprotocol MutableVQE
+(defprotocol ^:private MutableVQE
   (set-v [this value])
   (set-q [this value])
   (set-e [this value]))
