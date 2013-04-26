@@ -6292,7 +6292,14 @@
     (.write w (str content))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; futures (needs proxy);;;;;;;;;;;;;;;;;;
-(defn future-call 
+(defn realized?
+  "Returns true if a value has been produced for a promise, delay, future or lazy sequence."
+  {:added "1.3"}
+  [^clojure.lang.IPending x] (.isRealized x))
+
+(load "core_futures")
+
+#_(defn future-call 
   "Takes a function of no args and yields a future object that will
   invoke the function in another thread, and will cache the result and
   return it on all subsequent calls to deref/@. If the computation has
@@ -6319,7 +6326,7 @@
       (isDone [_] (.isDone fut))
       (cancel [_ interrupt?] (.cancel fut interrupt?)))))
   
-(defmacro future
+#_(defmacro future
   "Takes a body of expressions and yields a future object that will
   invoke the body in another thread, and will cache the result and
   return it on all subsequent calls to deref/@. If the computation has
@@ -6425,7 +6432,7 @@
        (when (:interim *clojure-version*)
          "-SNAPSHOT")))
 
-(defn promise
+#_(defn promise
   "Alpha - subject to change.
   Returns a promise object that can be read with deref/@, and set,
   once only, with deliver. Calls to deref/@ prior to delivery will
@@ -6457,7 +6464,7 @@
         (.countDown d)
         this)))))
 
-(defn deliver
+#_(defn deliver
   "Alpha - subject to change.
   Delivers the supplied value to the promise, releasing any pending
   derefs. A subsequent call to deliver on a promise will have no effect."
@@ -6469,7 +6476,7 @@
 
 (defn flatten
   "Takes any nested combination of sequential things (lists, vectors,
-  etc.) and returns their contents as a single, flat sequence.
+  2etc.) and returns their contents as a single, flat sequence.
   (flatten nil) returns an empty sequence."
   {:added "1.2"
    :static true}
@@ -6766,11 +6773,6 @@
   `(with-redefs-fn ~(zipmap (map #(list `var %) (take-nth 2 bindings))
                             (take-nth 2 (next bindings)))
                     (fn [] ~@body)))
-
-(defn realized?
-  "Returns true if a value has been produced for a promise, delay, future or lazy sequence."
-  {:added "1.3"}
-  [^clojure.lang.IPending x] (.isRealized x))
 
 (defmacro cond->
   "Takes an expression and a set of test/form pairs. Threads expr (via ->)

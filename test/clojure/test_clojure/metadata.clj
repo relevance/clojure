@@ -43,7 +43,11 @@
   (remove #(re-find #"^->[A-Z]" (name (.sym %))) public-vars-with-docstrings))
 
 (deftest public-vars-with-docstrings-have-added
-  (is (= [] (remove (comp :added meta) public-vars-with-docstrings-not-generated))))
+  (is (= [] (map
+             (fn [var]
+               {:var var
+                :meta (meta var)})
+             (remove (comp :added meta) public-vars-with-docstrings-not-generated)))))
 
 (deftest interaction-of-def-with-metadata
   (testing "initial def sets metadata"
