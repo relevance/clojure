@@ -25,7 +25,8 @@
 ;;
 (deftest pmap-does-its-thing
   ;; regression fixed in r1218; was OutOfMemoryError
-  (is (= '(1) (pmap inc [0]))))
+  (is (= '(1) (pmap inc [0])))
+  (is (= (range 1 20) (pmap inc (range 19)))))
 
 (deftest future-callback
   (is (= 42 (deref (let [p (promise)]

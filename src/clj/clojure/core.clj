@@ -6845,3 +6845,9 @@
  (catch Throwable t
    (.printStackTrace t)
    (throw t)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;; Async ;;;;;;;;;;;;;;;;;;;;;;;;;;
+(load "core_async")
+
+
